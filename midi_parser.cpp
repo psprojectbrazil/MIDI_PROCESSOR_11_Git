@@ -11,6 +11,7 @@ extern void     q_put(uint8_t src, uint8_t b);
 
 /* ---------- estado de notas ---------- */
 uint16_t noteMask[16][8] = {0};
+volatile uint16_t rawMask[16][8] = {0};
 
 static inline void set_note(uint8_t ch, uint8_t n) {
   noteMask[ch][n >> 4] |= 1u << (n & 15);
@@ -101,8 +102,15 @@ bool parse(Parser *p, uint8_t b, uint8_t *out, uint8_t *n) {
   if(hiT == 0x90 || hiT == 0x80) {
     // 1. transposição 
     int16_t note = (int16_t)out[1] + (int8_t)cfg.transp[g_src];
-    if(note < 0)  note = 0;
+    if(note < 0) note = 0;
     if(note > 127) note = 127;
+    uint8_t chTmp = out[0] & 0x0F;
+    if(hiT == 0x90){
+      if(out[2]) set_raw(chTmp, (uint8_t)note);
+      else       clr_raw(chTmp, (uint8_t)note);
+    }else{
+      clr_raw(chTmp, (uint8_t)note);
+    }
     // 2. quantização
     out[1] = quant_apply(g_src, (uint8_t)note);
   }
