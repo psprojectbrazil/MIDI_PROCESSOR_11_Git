@@ -1,7 +1,7 @@
 #include "quantizer.h"
 #include "routing.h"
 #include "arp.h"
-#include "midi_parser.h"     /* flush_notes() */
+#include "midi_parser.h"
 #include "hardware/pio.h"
 
 extern const uint8_t sm_tx1;  /* PIO0 – OUT 1 */

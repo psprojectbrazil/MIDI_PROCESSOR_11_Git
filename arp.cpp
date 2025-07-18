@@ -1,6 +1,7 @@
 #include "arp.h"
 #include "midi_parser.h"
 #include "routing.h"
+#include "quantizer.h" 
 
 /* ---------- configuração (global) ---------- */
 /* src: 0 = DIN 1 | 1 = DIN 2 | 3 = DIN 1+2 */
@@ -52,27 +53,30 @@ static void sendNoteOn(uint8_t n)
 }
 
 /* reconstrói a lista de notas mantidas */
-static void rebuildPool()
-{
+static void rebuildPool() {
   uint8_t old = poolCnt;
   poolCnt = 0;
-
-  for (uint8_t n = 0; n < 128 && poolCnt < 16; n++)
-  {
-    for (uint8_t ch = 0; ch < 16; ch++)
-    {
-      if (noteMask[ch][n >> 4] & (1u << (n & 15)))
-      {
-        pool[poolCnt++] = n;
+  uint8_t srcRoute = (arpCfg.src == 1) ? ROUTE_DIN2 : ROUTE_DIN1;
+  for(uint8_t n = 0; n < 128 && poolCnt < 16; n++) {
+    for(uint8_t ch = 0; ch < 16; ch++){
+      if(rawMask[ch][n >> 4] & (1u << (n & 15))) {
+        uint8_t q = quant_apply(srcRoute, n);
+        bool dup = false;
+        for(uint8_t i = 0; i < poolCnt; i++) {
+          if(pool[i] == q) {
+            dup = true;
+            break;
+          }
+        }
+        if(!dup) {
+          pool[poolCnt++] = q;
+        }
         break;
       }
     }
   }
-
   seqMax = poolCnt * arpCfg.octaves;
-
-  if ((old == 0 && poolCnt) || poolCnt == 0)
-  {
+  if((old == 0 && poolCnt) || poolCnt == 0) {
     idx = 0;
     oct = 0;
     seqPos = 0;
