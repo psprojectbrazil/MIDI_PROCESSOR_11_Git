@@ -41,30 +41,40 @@ static void rebuildLUT() {
 void quant_setCfg(const QuantCfg &c) {
   qCfg = c;
   rebuildLUT();
-  if(!tx_ready()) return;
-  flush_notes();          /* libera NOTE ON pendentes */
-  arp_allNotesOff();      /* solta a nota atual do Arp */
-  if(c.active & 1) {      /* DIN 1 */
-    for(uint8_t ch = 0; ch < 16; ++ch) {
-      route_sendByte(ROUTE_DIN1, 0xB0 | ch);
-      route_sendByte(ROUTE_DIN1, 0x78);
-      route_sendByte(ROUTE_DIN1, 0x00);
-      route_sendByte(ROUTE_DIN1, 0xB0 | ch);
-      route_sendByte(ROUTE_DIN1, 0x7B);
-      route_sendByte(ROUTE_DIN1, 0x00);
+  if(!tx_ready()) return;               
+  /* --- NOTE OFF + CC 78/7B para notas que estavam soando --- */
+  auto send_offs = [&](uint8_t route){
+    for(uint8_t ch = 0; ch < 16; ++ch){
+      for(uint8_t grp = 0; grp < 8; ++grp){
+        uint16_t m = noteMask[ch][grp];
+        if(!m) continue;
+        for(uint8_t bit = 0; bit < 16; ++bit){
+          if(m & (1u << bit)){
+            uint8_t n = (grp << 4) | bit;
+            route_sendByte(route, 0x80 | ch);
+            route_sendByte(route, n);
+            route_sendByte(route, 0);
+          }
+        }
+      }
+      route_sendByte(route, 0xB0 | ch);
+      route_sendByte(route, 0x78);
+      route_sendByte(route, 0x00);
+      route_sendByte(route, 0xB0 | ch);
+      route_sendByte(route, 0x7B);
+      route_sendByte(route, 0x00);
+    }
+  };
+  if(c.active & 1) send_offs(ROUTE_DIN1);
+  if(c.active & 2) send_offs(ROUTE_DIN2);
+  for(uint8_t ch = 0; ch < 16; ch++){   /* --- limpa apenas o mapa já quantizado --- */
+    for(uint8_t grp = 0; grp < 8; grp++){
+      noteMask[ch][grp] = 0;
     }
   }
-  if(c.active & 2) {      /* DIN 2 */
-    for(uint8_t ch = 0; ch < 16; ++ch) {
-      route_sendByte(ROUTE_DIN2, 0xB0 | ch);
-      route_sendByte(ROUTE_DIN2, 0x78);
-      route_sendByte(ROUTE_DIN2, 0x00);
-      route_sendByte(ROUTE_DIN2, 0xB0 | ch);
-      route_sendByte(ROUTE_DIN2, 0x7B);
-      route_sendByte(ROUTE_DIN2, 0x00);
-    }
-  }
+  arp_allNotesOff();                    /* reinicia o ciclo do Arp */
 }
+
 
 uint8_t quant_apply(uint8_t src, uint8_t note) {
   if(qCfg.active == 0) return note;
