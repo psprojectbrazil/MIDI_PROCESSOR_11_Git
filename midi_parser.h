@@ -10,7 +10,7 @@ static inline void set_raw(uint8_t ch, uint8_t n){
 }
 
 static inline void clr_raw(uint8_t ch, uint8_t n){
-  rawMask[ch][n >> 4] &= ~(1u << (n & 15);
+  rawMask[ch][n >> 4] &= ~(1u << (n & 15));
 }
 
 struct Parser {
